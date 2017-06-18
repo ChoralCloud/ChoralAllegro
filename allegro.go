@@ -56,6 +56,7 @@ func VerifyPayloadAndSend(w http.ResponseWriter, r *http.Request, _ httprouter.P
     payload := Data{}
     json.Unmarshal(body, &payload)
 
+    // do checks concurrently with go func()?
     if !checkTimestamp(payload.DeviceTimestamp) || !checkId() || !checkData() {
         fmt.Fprintf(w, "Data has incorrect format")
     }
