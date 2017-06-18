@@ -8,35 +8,45 @@ import (
     "time"
     "math/rand"
     "bytes"
-    "os"
+    "os/exec"
 )
 
 var url = "http://localhost:3000/"
 
 type Request struct {
-    DeviceId string
-    DeviceData json.RawMessage
-    DeviceTimestamp int64
+    DeviceId           string              `json:"device_id"`
+    DeviceData         json.RawMessage     `json:"device_data"`
+    DeviceTimestamp    int64               `json:"device_timestamp"`
 }
 
-// generate a random number for the deviceId (1-100)
-// generate random data for deviceData
+// generates a random UUID (this will actually come from the device itself)
+func genRandomId() string {
+    out, err := exec.Command("uuidgen").Output()
+    if err != nil {
+        panic(err)
+    }
+    return string(out)
+}
+
+// generate random string for device id
+// put random data in
 // generate timestamp for time.now()
 func genRandomData() json.RawMessage {
-    deviceId := rand.Intn(100)
+    rand.Seed(time.Now().UTC().UnixNano())
+    deviceId := genRandomId()
     deviceData := json.RawMessage(`{"data":"some random data"}`)
     timestamp := time.Now().Unix()
 
-    req := Request{
-        string(deviceId),
+    r := Request{
+        deviceId,
         deviceData,
         timestamp,
     }
 
-    j, err := json.Marshal(req)
+    j, err := json.Marshal(&r)
     if err != nil {
         fmt.Println(err)
-        os.Exit(3)
+        panic(err)
     }
     return j
 }
@@ -48,10 +58,11 @@ func TestJSONFormat(*testing.T) {
 
     req, err := http.NewRequest("POST", url, bytes.NewBuffer(JSON))
     req.Header.Set("Content-Type", "application/json")
+
     client := &http.Client{}
-    resp, err := client.Do(req)
+    client.Do(req)
     if err != nil {
+        fmt.Println(err)
         panic(err)
     }
-    resp.Body.Close()
 }

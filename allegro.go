@@ -6,9 +6,10 @@ import (
     "net/http"
     "github.com/julienschmidt/httprouter"
     "encoding/json"
+    "io/ioutil"
 )
 
-type Payload struct {
+type Data struct {
     DeviceId        string              `json:"device_id"`
     DeviceData      json.RawMessage     `json:"device_data"`
     DeviceTimestamp int64               `json:"device_timestamp"`
@@ -20,6 +21,18 @@ func Index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 func VerifyPayloadAndSend(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
     log.Printf("Post requests work!")
+
+    body, err := ioutil.ReadAll(r.Body)
+    if err != nil {
+        fmt.Println(err)
+        panic(err)
+    }
+
+    payload := Data{}
+    json.Unmarshal(body, &payload)
+    fmt.Println(payload.DeviceId)
+    fmt.Println(string(payload.DeviceData))
+    fmt.Println(payload.DeviceTimestamp)
 }
 
 func handleRequests() {
