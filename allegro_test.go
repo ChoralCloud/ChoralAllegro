@@ -1,14 +1,14 @@
 package main
 
 import (
-    "testing"
     "fmt"
-    "net/http"
-    "encoding/json"
     "time"
     "math/rand"
+    "encoding/json"
+    "net/http"
     "bytes"
     "os/exec"
+    "testing"
 )
 
 var url = "http://localhost:3000/"
@@ -51,10 +51,15 @@ func genRandomData() json.RawMessage {
     return j
 }
 
-// tests correctly formatted JSON
+// Test sending JSON to running server
+// **We can use httptest to actually check the response from the server
+// This would allow us to send error codes back if verification failed,
+// So we could write actual test cases... but we can't do that if we want
+// to use httprouter, which really simplifies the http request handling
 func TestJSONFormat(*testing.T) {
     fmt.Println("Testing JSON format")
     JSON := genRandomData()
+    time.Sleep(3000 * time.Millisecond)
 
     req, err := http.NewRequest("POST", url, bytes.NewBuffer(JSON))
     req.Header.Set("Content-Type", "application/json")
