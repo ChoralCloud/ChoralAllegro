@@ -8,6 +8,7 @@ import (
     "encoding/json"
     "net/http"
     "github.com/julienschmidt/httprouter"
+    "github.com/Shopify/sarama"
 )
 
 type Data struct {
@@ -61,9 +62,34 @@ func VerifyPayloadAndSend(w http.ResponseWriter, r *http.Request, _ httprouter.P
         fmt.Fprintf(w, "Data has incorrect format")
     }
 
+    p, err := json.Marshal(&payload)
+    if err != nil {
+        panic(err)
+    }
+    send(p)
     fmt.Println(payload.DeviceId)
     fmt.Println(string(payload.DeviceData))
     fmt.Println(payload.DeviceTimestamp)
+}
+
+func send(payload []byte) {
+    config := sarama.NewConfig()
+    config.Producer.Return.Successes = true
+    config.Producer.RequiredAcks = sarama.WaitForAll
+    brokers := []string{"localhost:9092"}
+    producer, err := sarama.NewSyncProducer(brokers, config)
+    if err != nil {
+        panic(err)
+    }
+    topic := "choraldatastream"
+    msg := &sarama.ProducerMessage{
+        Topic: topic,
+        Value: sarama.ByteEncoder(payload),
+    }
+    partition, offset, err := producer.SendMessage(msg)
+    fmt.Printf("Message is stored in topic(%s)/partition(%d)/offset(%d)\n", topic, partition, offset)
+    //:9092 for kafka
+    //:2181 for zookeeper
 }
 
 // Basic handlers to deal with different routes.

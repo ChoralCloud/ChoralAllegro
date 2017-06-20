@@ -1,0 +1,37 @@
+version: '3.2'
+
+services:
+  zookeeper:
+    container_name: allegro_zookeeper
+    hostname: allegro_zookeeper
+    image: zookeeper
+    restart: always
+    ports:
+      - "2181:2181"
+    networks:
+      - choralstorm
+
+  kafka:
+    container_name: allegro_kafka
+    hostname: allegro_kafka
+    image: kafka
+    ports:
+      - "9092:9092"
+    networks:
+      - choralstorm
+    links:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_PORT: 9092
+      # Edit this to your machine's local ip address
+      # This is a temporary solution, another solution is to use "kafka" as host name
+      # and edit the /etc/hosts file: 127.0.0.1   kafka
+      KAFKA_ADVERTISED_HOST_NAME: 192.168.0.18
+    depends_on:
+      - zookeeper
+
+networks:
+  choralstorm:
+    external: true
