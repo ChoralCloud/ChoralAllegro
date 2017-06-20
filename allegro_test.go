@@ -15,6 +15,7 @@ var url = "http://localhost:3000/"
 
 type Request struct {
     DeviceId           string              `json:"device_id"`
+    UserSecret         string              `json:"user_secret"`
     DeviceData         json.RawMessage     `json:"device_data"`
     DeviceTimestamp    int64               `json:"device_timestamp"`
 }
@@ -34,11 +35,13 @@ func genRandomId() string {
 func genRandomData() json.RawMessage {
     rand.Seed(time.Now().UTC().UnixNano())
     deviceId := genRandomId()
+    userSecret := "some_secret"
     deviceData := json.RawMessage(`{"data":"some random data"}`)
     timestamp := time.Now().Unix()
 
     r := Request{
         deviceId,
+        userSecret,
         deviceData,
         timestamp,
     }
