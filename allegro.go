@@ -13,6 +13,7 @@ import (
 
 type Data struct {
     DeviceId        string              `json:"device_id"`
+    UserSecret      string              `json:"user_secret"`
     DeviceData      json.RawMessage     `json:"device_data"`
     DeviceTimestamp int64               `json:"device_timestamp"`
 }
@@ -55,6 +56,7 @@ func VerifyPayloadAndSend(w http.ResponseWriter, r *http.Request, _ httprouter.P
     }
 
     payload := Data{}
+
     json.Unmarshal(body, &payload)
 
     // do checks concurrently with go func()?
@@ -68,6 +70,7 @@ func VerifyPayloadAndSend(w http.ResponseWriter, r *http.Request, _ httprouter.P
     }
     send(p)
     fmt.Println(payload.DeviceId)
+    fmt.Println(payload.UserSecret)
     fmt.Println(string(payload.DeviceData))
     fmt.Println(payload.DeviceTimestamp)
 }
