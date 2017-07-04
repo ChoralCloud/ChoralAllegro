@@ -11,7 +11,7 @@ import (
     "testing"
 )
 
-var url = "http://localhost:3000/"
+var url = "http://localhost:8081/"
 
 type Request struct {
     DeviceId           string              `json:"device_id"`
@@ -33,7 +33,7 @@ func genRandomId() string {
 // put random data in
 // generate timestamp for time.now()
 func genRandomData() json.RawMessage {
-    rand.Seed(time.Now().UTC().UnixNano())
+    rand.Seed(time.Now().UTC().UnixNano() / 1000000)
     deviceId := genRandomId()
     userSecret := "some_secret"
     deviceData := json.RawMessage(`{"data":"some random data"}`)
