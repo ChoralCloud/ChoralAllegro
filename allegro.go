@@ -36,10 +36,10 @@ func Index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 }
 
 func checkTimestamp(timestamp int64) bool {
-	curTime := time.Now().Unix()
+	curTime := time.Now().UnixNano() / (int64(time.Millisecond) / int64(time.Nanosecond))
 	diff := curTime - timestamp
 	fmt.Println(diff)
-	if diff < 0 || diff > (60*60) {
+	if diff < 0 || diff > (1000*60*60) {
 		return false
 	}
 	return true
@@ -159,8 +159,8 @@ func handleRequests() {
 	// while testing the devices on the unreliable network at school
 	router.GET("/device", ListDevices)
 	router.POST("/device", UpdateDeviceList)
-
-	log.Fatal(http.ListenAndServe(":3000", router))
+  
+	log.Fatal(http.ListenAndServe(":8081", router))
 }
 
 func main() {
