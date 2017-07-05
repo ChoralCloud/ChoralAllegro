@@ -19,6 +19,8 @@ type Data struct {
 	DeviceTimestamp int64           `json:"device_timestamp"`
 }
 
+var PRODUCER sarama.SyncProducer
+
 // XXX HACK
 // this is to keep track of the devices ip in case we need to ssh into the
 // device for some reason, this is not for production this is only for us
@@ -64,8 +66,8 @@ func VerifyPayloadAndSend(w http.ResponseWriter, r *http.Request, _ httprouter.P
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		fmt.Println(err)
-		panic(err)
+		fmt.Errorf("error while reading Body of incoming message: %s", err.Error())
+		return
 	}
 
 	payload := Data{}
@@ -79,26 +81,22 @@ func VerifyPayloadAndSend(w http.ResponseWriter, r *http.Request, _ httprouter.P
 
 	p, err := json.Marshal(&payload)
 	if err != nil {
-		panic(err)
+		fmt.Errorf("Error while remarshaling json: %s", err.Error())
+		return
 	}
 	send(p)
 }
 
 func send(payload []byte) {
-	config := sarama.NewConfig()
-	config.Producer.Return.Successes = true
-	config.Producer.RequiredAcks = sarama.WaitForAll
-	brokers := []string{"localhost:9092"}
-	producer, err := sarama.NewSyncProducer(brokers, config)
-	if err != nil {
-		panic(err)
-	}
 	topic := "choraldatastream"
 	msg := &sarama.ProducerMessage{
 		Topic: topic,
 		Value: sarama.ByteEncoder(payload),
 	}
-	partition, offset, err := producer.SendMessage(msg)
+	partition, offset, err := PRODUCER.SendMessage(msg)
+	if err != nil {
+		fmt.Errorf("error while sending message: %s", err.Error())
+	}
 	fmt.Printf("Message is stored in topic(%s)/partition(%d)/offset(%d)\n", topic, partition, offset)
 	//:9092 for kafka
 	//:2181 for zookeeper
@@ -123,8 +121,7 @@ func UpdateDeviceList(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		fmt.Println(err)
-		panic(err)
+		fmt.Errorf("Error while reading Body of device message: %s", err.Error())
 	}
 
 	payload := DeviceRegistration{}
@@ -149,6 +146,17 @@ func UpdateDeviceList(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 // Basic handlers to deal with different routes.
 // All requests should come into the same route as POST requests
 func handleRequests() {
+	config := sarama.NewConfig()
+	config.Producer.Return.Successes = true
+	config.Producer.RequiredAcks = sarama.WaitForAll
+	brokers := []string{"localhost:9092"}
+	var err error
+	PRODUCER, err = sarama.NewSyncProducer(brokers, config)
+	if err != nil {
+		// this is the only good time to panic
+		panic(err)
+	}
+
 	router := httprouter.New()
 	router.GET("/", Index)
 	router.POST("/", VerifyPayloadAndSend)
