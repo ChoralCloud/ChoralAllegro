@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/julienschmidt/httprouter"
@@ -17,6 +18,33 @@ type Data struct {
 	UserSecret      string          `json:"user_secret"`
 	DeviceData      json.RawMessage `json:"device_data"`
 	DeviceTimestamp int64           `json:"device_timestamp"`
+}
+
+type Response struct {
+	Err string `json:"error"`
+}
+
+func SendErrorResponse(err error, w http.ResponseWriter) {
+	resp := Response{Err: err.Error()}
+	str, err := json.Marshal(resp)
+
+	if err != nil {
+		log.Printf("Could not write marshal error response")
+		return
+	}
+	log.Printf(string(str))
+	fmt.Fprintf(w, string(str))
+}
+
+func SendSuccessResponse(w http.ResponseWriter) {
+	resp := Response{}
+	str, err := json.Marshal(resp)
+
+	if err != nil {
+		log.Printf("Could not write marshal success response")
+		return
+	}
+	fmt.Fprintf(w, string(str))
 }
 
 var PRODUCER sarama.SyncProducer
@@ -37,14 +65,14 @@ func Index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	fmt.Fprintf(w, "Choral Device Endpoint\n")
 }
 
-func checkTimestamp(timestamp int64) bool {
+func checkTimestamp(timestamp int64) error {
 	curTime := time.Now().UnixNano() / (int64(time.Millisecond) / int64(time.Nanosecond))
 	diff := curTime - timestamp
-	fmt.Println(diff)
 	if diff < 0 || diff > (1000*60*60) {
-		return false
+		err_str := fmt.Sprintf("Invalid Timestamp: diff %v, curTime %v, timestamp %v", diff, curTime, timestamp)
+		return errors.New(err_str)
 	}
-	return true
+	return nil
 }
 
 func checkId() bool {
@@ -55,6 +83,24 @@ func checkData() bool {
 	return true
 }
 
+func VerifyPayload(body []byte) error {
+	payload := Data{}
+
+	err := json.Unmarshal(body, &payload)
+	if err != nil {
+		log.Printf("Error while marshaling json: %s", err.Error())
+		return err
+	}
+
+	err = checkTimestamp(payload.DeviceTimestamp)
+	if err != nil {
+		log.Printf(err.Error())
+		return err
+	}
+
+	return nil
+}
+
 // Recieves data, in format of {deviceId, data, timestamp}
 // We need to verify the format of these:
 //   - Is deviceId correct?
@@ -62,42 +108,54 @@ func checkData() bool {
 //   - Is data format?
 // then we need to pass it to kafka, which is in another docker container right now
 func VerifyPayloadAndSend(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	log.Printf("Post requests work!")
+	w.Header().Set("Content-Type", "application/json")
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		fmt.Errorf("error while reading Body of incoming message: %s", err.Error())
+		log.Printf("error while reading Body of incoming message: %s", err.Error())
+		SendErrorResponse(err, w)
 		return
 	}
 
-	payload := Data{}
-
-	json.Unmarshal(body, &payload)
-
-	// do checks concurrently with go func()?
-	if !checkTimestamp(payload.DeviceTimestamp) || !checkId() || !checkData() {
-		fmt.Fprintf(w, "Data has incorrect format")
-	}
-
-	p, err := json.Marshal(&payload)
+	err = VerifyPayload(body)
 	if err != nil {
-		fmt.Errorf("Error while remarshaling json: %s", err.Error())
+		SendErrorResponse(err, w)
 		return
 	}
-	send(p)
+
+	err = SendMessage(body)
+	if err != nil {
+		SendErrorResponse(err, w)
+		return
+	}
+
+	SendSuccessResponse(w)
 }
 
-func send(payload []byte) {
+func SendMessage(payload []byte) error {
 	topic := "choraldatastream"
 	msg := &sarama.ProducerMessage{
 		Topic: topic,
 		Value: sarama.ByteEncoder(payload),
 	}
+
 	partition, offset, err := PRODUCER.SendMessage(msg)
 	if err != nil {
-		fmt.Errorf("error while sending message: %s", err.Error())
+		log.Printf("error while sending message: %s", err.Error())
+		return err
 	}
-	fmt.Printf("Message is stored in topic(%s)/partition(%d)/offset(%d)\n", topic, partition, offset)
+
+	if partition == -1 || offset == -1 {
+		// we have had issues where this server would not connect to the kafka server
+		// this is due to a issue with the compose file
+
+		err = errors.New("There was an error submittion to kafka, your message was valid but not processed")
+		log.Printf(err.Error())
+		return err
+	}
+
+	log.Printf("Message is stored in topic(%s)/partition(%d)/offset(%d)\n", topic, partition, offset)
+	return nil
 	//:9092 for kafka
 	//:2181 for zookeeper
 }
@@ -121,7 +179,9 @@ func UpdateDeviceList(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		fmt.Errorf("Error while reading Body of device message: %s", err.Error())
+		log.Printf("Error while reading Body of device message: %s", err.Error())
+		SendErrorResponse(err, w)
+		return
 	}
 
 	payload := DeviceRegistration{}
@@ -149,9 +209,12 @@ func handleRequests() {
 	config := sarama.NewConfig()
 	config.Producer.Return.Successes = true
 	config.Producer.RequiredAcks = sarama.WaitForAll
+
 	brokers := []string{"localhost:9092"}
+
 	var err error
 	PRODUCER, err = sarama.NewSyncProducer(brokers, config)
+
 	if err != nil {
 		// this is the only good time to panic
 		panic(err)
@@ -167,8 +230,16 @@ func handleRequests() {
 	// while testing the devices on the unreliable network at school
 	router.GET("/device", ListDevices)
 	router.POST("/device", UpdateDeviceList)
-  
-	log.Fatal(http.ListenAndServe(":8081", router))
+
+	defer func() {
+		if err := PRODUCER.Close(); err != nil {
+			log.Printf("Failed to close server", err)
+		}
+	}()
+
+	PORT := ":8081"
+	log.Printf("Starting on port %v", PORT)
+	log.Fatal(http.ListenAndServe(PORT, router))
 }
 
 func main() {

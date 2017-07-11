@@ -1,0 +1,14 @@
+{
+  "name": "choralmock",
+  "version": "1.0.0",
+  "description": "Make requests to choral from the command line",
+  "main": "devicemock.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Andrei Taylor",
+  "license": "ISC",
+  "dependencies": {
+    "request": "^2.81.0"
+  }
+}
