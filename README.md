@@ -23,7 +23,17 @@ We might want to consider using godep for dependency management, especially if w
 
 ## Docker
 
-There is also a docker folder here so you can run this in isolation from ChoralStorm. It takes considerably less memory to do this, and is useful for development purposes. To do this:
+There are two ways to run this project using docker
+
+### With Choral Storm
+
+Run choral storm as described in the readme, then run allegro by running
+
+`docker-compose up`
+
+### Locally
+
+There is also a docker folder so you can run this in isolation from ChoralStorm. It takes considerably less memory to do this, and so it is useful for development purposes. To do this:
 
 1. Ensure you aren't already running the image from ChoralStorm
 2. cd docker
