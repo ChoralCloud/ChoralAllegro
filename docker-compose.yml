@@ -1,0 +1,18 @@
+version: "3.3"
+
+services:
+  choralallegro:
+    build: .
+    command: go run allegro.go
+    ports:
+      - "8081:8081"
+    environment:
+      KAFKA_URI: "kafka:9092"
+    external_links:
+      - kafka
+
+networks:
+  default:
+    external:
+      name: choralstorm
+
