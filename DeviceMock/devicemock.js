@@ -7,7 +7,7 @@ if(process.argv.indexOf('--devices') == -1){
   for(var i = 0; i < N; ++i)
     setInterval(sendRequest("" + i), interval)
 } else {
-  for(var i = process.argv.indexOf('--devices') ; i < process.argv.length; ++i){
+  for(var i = process.argv.indexOf('--devices') + 1; i < process.argv.length; ++i){
     setInterval(sendRequest(process.argv[i]), interval)
   }
 }
