@@ -1,15 +1,23 @@
 var request = require('request')
 
 const interval = 500
-const N = (0|process.env.N) || 1;
+const N = (0|process.env.N) || 1
 
-for(var i = 0; i < N; ++i)
-  setInterval(sendRequest("" + i), interval)
+if(process.argv.indexOf('--devices') == -1){
+  for(var i = 0; i < N; ++i)
+    setInterval(sendRequest("" + i), interval)
+} else {
+  for(var i = process.argv.indexOf('--devices') + 1; i < process.argv.length; ++i){
+    setInterval(sendRequest(process.argv[i]), interval)
+  }
+}
 
 function sendRequest(dev_id) {
   // will be ignored
+  console.log("Making a new device for " + dev_id )
   return function(){
     var now = new Date()
+
 
     var data = {
       "device_id": dev_id,
