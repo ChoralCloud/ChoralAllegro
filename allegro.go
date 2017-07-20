@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 )
@@ -210,7 +211,15 @@ func handleRequests() {
 	config.Producer.Return.Successes = true
 	config.Producer.RequiredAcks = sarama.WaitForAll
 
-	brokers := []string{"localhost:9092"}
+	broker := os.Getenv("KAFKA_URI")
+
+	if broker == "" {
+		broker = "localhost:9092"
+	}
+
+	brokers := []string{broker}
+
+	fmt.Println("Connecting to ", brokers)
 
 	var err error
 	PRODUCER, err = sarama.NewSyncProducer(brokers, config)
