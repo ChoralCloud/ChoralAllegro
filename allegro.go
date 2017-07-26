@@ -69,7 +69,7 @@ func Index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 func checkTimestamp(timestamp int64) error {
 	curTime := time.Now().UnixNano() / (int64(time.Millisecond) / int64(time.Nanosecond))
 	diff := curTime - timestamp
-	if diff < 0 || diff > (1000*60*60) {
+	if diff < -(1000*60*60) || diff > (1000*60*60) {
 		err_str := fmt.Sprintf("Invalid Timestamp: diff %v, curTime %v, timestamp %v", diff, curTime, timestamp)
 		return errors.New(err_str)
 	}
